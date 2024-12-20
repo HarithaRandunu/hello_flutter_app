@@ -12,6 +12,14 @@ dependencies:
   flutter:
     sdk: flutter
 
+  shared_preferences:
+  cupertino_icons:
+  animated_splash_screen:
+  lottie:
+  connectivity_plus:
+  get:
+  internet_connection_checker_plus:
+
   english_words: ^4.0.0
   provider: ^6.0.0
   dio: ^5.7.0
@@ -20,7 +28,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^2.0.0
+  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/

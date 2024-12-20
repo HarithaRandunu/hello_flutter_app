@@ -1,6 +1,12 @@
-// import 'package:device_preview/device_preview.dart';
+import 'dart:async';
+
+import 'package:animated_splash_screen/animated_splash_screen.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
+import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:hello_flutter_app/dependency_injection.dart';
 import 'package:hello_flutter_app/joke_service.dart';
 
 // void main() => runApp(const MyApp());
@@ -13,6 +19,7 @@ Future main() async {
   ]);
 
   runApp(MyApp());
+  DependencyInjection.init();
 }
 
 // void main() {
@@ -27,11 +34,21 @@ class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext buildContext) {
-    return MaterialApp(
+  Widget build(BuildContext context) {
+    return GetMaterialApp(
+      debugShowCheckedModeBanner: false,
       title: 'Joke App',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: const JokeListPage(),
+      home: AnimatedSplashScreen(
+        splash: 'assets/jack-in-the-box.gif',
+        nextScreen: const JokeListPage(),
+        centered: true,
+        splashIconSize: 500.0,
+        backgroundColor: Colors.white,
+        duration: 2800,
+        splashTransition: SplashTransition.fadeTransition,
+      ),
+      // home: const JokeListPage(),
     );
   }
 }
@@ -43,49 +60,208 @@ class JokeListPage extends StatefulWidget {
   _JokeListPageState createState() => _JokeListPageState();
 }
 
-class Value_And_ChildText {
-  late String value;
-  late String childText;
-
-  Value_And_ChildText(this.value, this.childText);
-}
+// class Value_And_ChildText {
+//   late String value;
+//   late String childText;
+//
+//   Value_And_ChildText(this.value, this.childText);
+// }
 
 class _JokeListPageState extends State<JokeListPage> {
   final JokeService _jokeService = JokeService();
   List<Map<String, dynamic>> _jokesRaw = [];
   bool _isLoading = false;
+  bool isConnectedToInternet = false;
+  bool _isExpanded = false;
 
-  final List<String> _dropdownCategories = [
-    'Any',
-    'Miscellaneous',
-    'Programming',
-    'Pun',
-    'Spooky',
-    'Christmas',
-  ];
+  StreamSubscription? _internetConnectionStreamSubscription;
 
-  final List<Value_And_ChildText> _dropDownTypes = [
-    Value_And_ChildText("any", "Any"),
-    Value_And_ChildText("single", "Single"),
-    Value_And_ChildText("twopart", "Two Part")
-  ];
-
-  final List<String> _noOfAmount = [
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '6',
-    '7',
-    '8',
-    '9',
-    '10'
-  ];
-
-  String? _selectedCategory = 'Any';
+  late String? _selectedCategoriesAsText = 'Any';
+  List<String> _selectedCategories = [];
+  late String? _selectedBlacklistAsText = '';
+  List<String> _selectedBlacklist = [];
   String? _selectedType = 'any';
   String? _selectedAmount = '10';
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _internetConnectionStreamSubscription = InternetConnection().onStatusChange.listen((event) {
+  //     print(event);
+  //     switch (event) {
+  //       case InternetStatus.connected:
+  //         setState(() {
+  //           isConnectedToInternet = true;
+  //         });
+  //         break;
+  //       case InternetStatus.disconnected:
+  //         setState(() {
+  //           isConnectedToInternet = false;
+  //         });
+  //         break;
+  //       default:
+  //         setState(() {
+  //           isConnectedToInternet = false;
+  //         });
+  //         break;
+  //     }
+  //   });
+  // }
+  //
+  // @override
+  // void dispose() {
+  //   _internetConnectionStreamSubscription?.cancel();
+  //   super.dispose();
+  // }
+
+  void _showType() async {
+    final List<String> items = [
+      'any',
+      'single',
+      'twopart',
+    ];
+
+    final String? result = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SingleSelect(items: items);
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedType = result;
+      });
+    } else {
+      setState(() {
+        _selectedType = 'any';
+      });
+    }
+  }
+
+  void _showCount() async {
+    final List<String> items = [
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+      '6',
+      '7',
+      '8',
+      '9',
+      '10',
+    ];
+
+    final String? result = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return SingleSelect(items: items);
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedAmount = result;
+      });
+    } else {
+      setState(() {
+        _selectedAmount = '10';
+      });
+    }
+  }
+
+  void _showMultiSelectCategories() async {
+    final List<String> items = [
+      'Miscellaneous',
+      'Programming',
+      'Pun',
+      'Spooky',
+      'Christmas',
+    ];
+
+    final List<String>? result = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return MultiSelect(items: items);
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedCategories = result;
+        _listToString(_selectedCategories, _selectedCategoriesAsText!);
+      });
+    } else {
+      setState(() {
+        _selectedCategories = [];
+        _selectedCategoriesAsText = 'Any';
+      });
+    }
+  }
+
+  // void _updateConnectionStatus(ConnectivityResult connectivityResult) {
+  //   if (!isConnectedToInternet) {
+  //     Get.rawSnackbar(
+  //       messageText: const Text(
+  //         'Please Connect to the Internet.',
+  //         style: TextStyle(
+  //           color: Colors.white,
+  //           fontSize: 14,
+  //         )
+  //       ),
+  //       isDismissible: false,
+  //       duration: const Duration(days: 1),
+  //       backgroundColor: Colors.red,
+  //       icon: const Icon(CupertinoIcons.wifi_slash, color: CupertinoColors.white),
+  //       margin: const EdgeInsets.all(8),
+  //       snackStyle: SnackStyle.GROUNDED,
+  //     );
+  //   }
+  //   else {
+  //     if (Get.isSnackbarOpen) {
+  //       Get.closeCurrentSnackbar();
+  //     }
+  //   }
+  // }
+
+  void _showBlackList() async {
+    final List<String> items = [
+      'nsfw',
+      'religious',
+      'political',
+      'racist',
+      'sexist',
+      'explicit',
+    ];
+
+    final List<String>? result = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return MultiSelect(items: items);
+      },
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedBlacklist = result;
+        _listToString(_selectedBlacklist, _selectedBlacklistAsText!);
+      });
+    } else {
+      setState(() {
+        _selectedBlacklist = [];
+        _selectedBlacklistAsText = '';
+      });
+    }
+  }
+
+  String _listToString(List<String> selectedItems, String returnString) {
+    setState(() {
+      returnString = '';
+      returnString = selectedItems.join(',');
+    });
+    return returnString;
+  }
 
   Future<void> _fetchJokes() async {
     // if (_selectedAmount == '') {
@@ -97,7 +273,7 @@ class _JokeListPageState extends State<JokeListPage> {
     setState(() => _isLoading = true);
     try {
       _jokesRaw = (await _jokeService.fetchJokesRaw(
-          _selectedCategory, _selectedType, _selectedAmount))!;
+          _selectedCategoriesAsText!, _selectedType, _selectedAmount))!;
       setState(() => _isLoading = false);
       if (_jokesRaw == []) {
         throw Exception();
@@ -114,19 +290,28 @@ class _JokeListPageState extends State<JokeListPage> {
   @override
   Widget build(BuildContext builderContext) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Joke App',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+      appBar:  PreferredSize(
+        preferredSize: Size.fromHeight(70),
+        child: AppBar(
+          title: Center(
+            child: Text(
+              'Joker',
+              style: TextStyle(
+                fontSize: 35,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white
+              ),
+            ),
+          ),
+          backgroundColor: Colors.blueGrey,
         ),
-        backgroundColor: Colors.deepPurple,
       ),
       body: Container(
         decoration: BoxDecoration(
             gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Colors.deepPurple.shade100, Colors.white],
+          colors: [Colors.blue.shade100, Colors.white],
         )),
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -134,7 +319,7 @@ class _JokeListPageState extends State<JokeListPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Text(
-                'Welcome to the Joke App!',
+                'Welcome to the Joker App!',
                 style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -147,7 +332,7 @@ class _JokeListPageState extends State<JokeListPage> {
                 'Click the button to fetch random jokes!',
                 style: TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w500,
                   fontStyle: FontStyle.italic,
                   color: Colors.deepPurple,
                 ),
@@ -155,81 +340,45 @@ class _JokeListPageState extends State<JokeListPage> {
               ),
               const SizedBox(height: 5),
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.only(left: 16.0, right: 16.0),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Type',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w500,
-                              fontSize: 15,
-                            ),
-                          ),
-                          SizedBox(
-                            width: 110,
-                            child: DropdownButton(
-                              value: _selectedType,
-                              items: _dropDownTypes
-                                  .map((Value_And_ChildText item) {
-                                return DropdownMenuItem(
-                                  value: item.value,
-                                  child: Text(item.childText),
-                                );
-                              }).toList(),
-                              onChanged: (String? value) {
-                                setState(() {
-                                  _selectedType = value;
-                                });
-                              },
-                              dropdownColor: Colors.deepPurple[200],
-                              elevation: 30,
-                              padding: const EdgeInsets.all(10.0),
-                              borderRadius: BorderRadius.circular(12),
-                              style: TextStyle(
-                                  color: Colors.black87,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700),
-                              underline: Container(
-                                height: 5,
-                                color: Colors.deepPurple[100],
-                              ),
-                              icon: const Icon(Icons.arrow_drop_down),
-                            ),
-                          ),
-                        ],
-                      ),
+                    ElevatedButton(
+                      onPressed: _showType,
+                      child: const Text('Select Type'),
                     ),
-                    DropdownButton(
-                      value: _selectedCategory,
-                      items: _dropdownCategories.map((String? item) {
-                        return DropdownMenuItem(
-                            value: item,
-                            child: Text(item!),
-                        );
-                      }).toList(),
-                      onChanged: (String? value) {
-                        setState(() {
-                          _selectedCategory = value;
-                        });
-                      },
+                    const SizedBox(
+                      width: 10,
                     ),
-                    DropdownButton(
-                        value: _selectedAmount,
-                        items: _noOfAmount.map((String? item) {
-                          return DropdownMenuItem(
-                              value: item, child: Text(item!));
-                        }).toList(),
-                        onChanged: (String? value) {
-                          setState(() {
-                            _selectedAmount = value;
-                          });
-                        }),
+                    ElevatedButton(
+                      onPressed: _showMultiSelectCategories,
+                      child: const Text('Select Categories'),
+                    ),
+                    const SizedBox(
+                      width: 10,
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding:
+                    const EdgeInsets.only(left: 16.0, right: 16.0, bottom: 5.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ElevatedButton(
+                        onPressed: _showBlackList,
+                        child: const Text('Select Blacklist')),
+                    const SizedBox(
+                      width: 10,
+                    ),
+                    ElevatedButton(
+                        onPressed: _showCount,
+                        child: const Text('Select Count')),
+                    const SizedBox(
+                      width: 10,
+                    ),
                   ],
                 ),
               ),
@@ -251,16 +400,147 @@ class _JokeListPageState extends State<JokeListPage> {
                       color: Colors.white,
                     ),
                   )),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Expanded(
-                child: _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildJokeList(),
-              )
+                  child:
+                      // _isLoading
+                      //     ? const Center(child: CircularProgressIndicator())
+                      //     : _buildJokeList(),
+                      _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : Column(
+                              children: [
+                                _buildSelected(),
+                                // if (!isConnectedToInternet)
+                                //   _connectivityState(),
+                                const SizedBox(height: 16),
+                                Expanded(
+                                  child: _buildJokeList(),
+                                ),
+                              ],
+                            ))
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSelected() {
+    return Column(
+      children: [
+        InkWell(
+          onTap: () {
+            setState(() {
+              _isExpanded = !_isExpanded;
+            });
+          },
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _isExpanded ? 'Hide Details' : 'Show Details',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
+              ),
+              Icon(
+                _isExpanded ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                color: Colors.blue,
+              )
+            ],
+          ),
+        ),
+        AnimatedSize(
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+          child: _isExpanded
+              ? Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    Wrap(
+                      children: [
+                        Text(
+                          'Type :- ',
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.brown),
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.ltr,
+                        ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Chip(
+                            label: Text(_selectedType!),
+                            backgroundColor: Colors.deepOrange.shade100,
+                            side:
+                                BorderSide(color: Colors.deepOrange, width: 2)),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Text(
+                          'Amount :- ',
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.brown),
+                          textAlign: TextAlign.center,
+                          textDirection: TextDirection.ltr,
+                        ),
+                        const SizedBox(
+                          width: 10,
+                        ),
+                        Chip(
+                            label: Text(_selectedAmount!),
+                            backgroundColor: Colors.green.shade100,
+                            side: BorderSide(color: Colors.green, width: 2)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Selected Categories :- ',
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.brown),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      children: _selectedCategories
+                          .map((e) => Chip(
+                                label: Text(e),
+                                side: BorderSide(color: Colors.blue, width: 2),
+                                backgroundColor: Colors.blue.shade100,
+                              ))
+                          .toList(),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Selected Blacklist :- ',
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.brown),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      children: _selectedBlacklist
+                          .map((e) => Chip(
+                                label: Text(e),
+                                side: BorderSide(color: Colors.red, width: 2),
+                                backgroundColor: Colors.red.shade100,
+                              ))
+                          .toList(),
+                    ),
+                  ],
+                )
+              : const SizedBox.shrink(),
+        )
+      ],
     );
   }
 
@@ -297,7 +577,7 @@ class _JokeListPageState extends State<JokeListPage> {
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.all(10.0),
                 child: Text(
                   '${jokeJson['joke']}',
                   style: const TextStyle(fontSize: 14),
@@ -316,13 +596,14 @@ class _JokeListPageState extends State<JokeListPage> {
                 children: [
                   Text(
                     '${jokeJson['setup']}',
-                    style: const TextStyle(fontSize: 15),
-                    textAlign: TextAlign.left,
+                    style: const TextStyle(fontSize: 17),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${jokeJson['delivery']}',
-                    style: const TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 18),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -330,6 +611,120 @@ class _JokeListPageState extends State<JokeListPage> {
           );
         }
       },
+    );
+  }
+}
+
+class SingleSelect extends StatefulWidget {
+  final List<String> items;
+  const SingleSelect({Key? key, required this.items}) : super(key: key);
+
+  @override
+  State<StatefulWidget> createState() => _SingleSelectState();
+}
+
+class _SingleSelectState extends State<SingleSelect> {
+  String? _selectedItem;
+
+  void _itemChange(String itemValue) {
+    setState(() {
+      _selectedItem = itemValue;
+    });
+  }
+
+  void _cancel() {
+    Navigator.pop(context);
+  }
+
+  void _submit() {
+    Navigator.pop(context, _selectedItem);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Item'),
+      content: SingleChildScrollView(
+        child: ListBody(
+          children: widget.items
+              .map((item) => RadioListTile(
+                    value: item,
+                    groupValue: _selectedItem,
+                    title: Text(item),
+                    onChanged: (value) => _itemChange(value!),
+                  ))
+              .toList(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _cancel,
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          child: const Text('Submit'),
+        ),
+      ],
+    );
+  }
+}
+
+class MultiSelect extends StatefulWidget {
+  final List<String> items;
+  const MultiSelect({Key? key, required this.items}) : super(key: key);
+
+  @override
+  State<StatefulWidget> createState() => _MultiSelectState();
+}
+
+class _MultiSelectState extends State<MultiSelect> {
+  final List<String> _selectedItems = [];
+
+  void _itemChange(String itemValue, bool isChecked) {
+    setState(() {
+      if (isChecked) {
+        _selectedItems.add(itemValue);
+      } else {
+        _selectedItems.remove(itemValue);
+      }
+    });
+  }
+
+  void _cancel() {
+    Navigator.pop(context);
+  }
+
+  void _submit() {
+    Navigator.pop(context, _selectedItems);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Select Category'),
+      content: SingleChildScrollView(
+        child: ListBody(
+          children: widget.items
+              .map((item) => CheckboxListTile(
+                    value: _selectedItems.contains(item),
+                    title: Text(item),
+                    controlAffinity: ListTileControlAffinity.leading,
+                    onChanged: (isChecked) => _itemChange(item, isChecked!),
+                  ))
+              .toList(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _cancel,
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submit,
+          child: const Text('Submit'),
+        ),
+      ],
     );
   }
 }
