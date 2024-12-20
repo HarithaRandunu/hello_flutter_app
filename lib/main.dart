@@ -83,37 +83,6 @@ class _JokeListPageState extends State<JokeListPage> {
   String? _selectedType = 'any';
   String? _selectedAmount = '10';
 
-  // @override
-  // void initState() {
-  //   super.initState();
-  //   _internetConnectionStreamSubscription = InternetConnection().onStatusChange.listen((event) {
-  //     print(event);
-  //     switch (event) {
-  //       case InternetStatus.connected:
-  //         setState(() {
-  //           isConnectedToInternet = true;
-  //         });
-  //         break;
-  //       case InternetStatus.disconnected:
-  //         setState(() {
-  //           isConnectedToInternet = false;
-  //         });
-  //         break;
-  //       default:
-  //         setState(() {
-  //           isConnectedToInternet = false;
-  //         });
-  //         break;
-  //     }
-  //   });
-  // }
-  //
-  // @override
-  // void dispose() {
-  //   _internetConnectionStreamSubscription?.cancel();
-  //   super.dispose();
-  // }
-
   void _showType() async {
     final List<String> items = [
       'any',
@@ -199,31 +168,6 @@ class _JokeListPageState extends State<JokeListPage> {
       });
     }
   }
-
-  // void _updateConnectionStatus(ConnectivityResult connectivityResult) {
-  //   if (!isConnectedToInternet) {
-  //     Get.rawSnackbar(
-  //       messageText: const Text(
-  //         'Please Connect to the Internet.',
-  //         style: TextStyle(
-  //           color: Colors.white,
-  //           fontSize: 14,
-  //         )
-  //       ),
-  //       isDismissible: false,
-  //       duration: const Duration(days: 1),
-  //       backgroundColor: Colors.red,
-  //       icon: const Icon(CupertinoIcons.wifi_slash, color: CupertinoColors.white),
-  //       margin: const EdgeInsets.all(8),
-  //       snackStyle: SnackStyle.GROUNDED,
-  //     );
-  //   }
-  //   else {
-  //     if (Get.isSnackbarOpen) {
-  //       Get.closeCurrentSnackbar();
-  //     }
-  //   }
-  // }
 
   void _showBlackList() async {
     final List<String> items = [
